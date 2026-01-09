@@ -1,0 +1,922 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Flappy Neon: Ultimate Edition</title>
+    <style>
+        /* --- ESTILOS GENERALES --- */
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap');
+
+        :root {
+            --primary: #00ffff;
+            --secondary: #003333;
+            --bg: #050505;
+            --glass: rgba(10, 10, 10, 0.9);
+            --gold: #ffd700;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: var(--bg);
+            color: #fff;
+            font-family: 'Orbitron', sans-serif;
+            overflow: hidden;
+            touch-action: none;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            user-select: none;
+        }
+
+        #game-container {
+            position: relative;
+            width: 100%;
+            max-width: 480px;
+            height: 100%;
+            max-height: 800px;
+            background: #000;
+            box-shadow: 0 0 50px rgba(0,0,0,0.5);
+            overflow: hidden;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* --- UI LAYERS --- */
+        .ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            transition: opacity 0.3s, visibility 0.3s;
+            z-index: 10;
+            pointer-events: none;
+        }
+
+        .ui-layer.active {
+            opacity: 1;
+            visibility: visible;
+            pointer-events: auto;
+        }
+
+        .hidden {
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+        }
+
+        /* --- TIPOGRAFÍA --- */
+        h1 {
+            font-size: 3rem;
+            margin: 0 0 10px 0;
+            color: var(--primary);
+            text-shadow: 0 0 20px var(--primary);
+            text-align: center;
+            line-height: 1;
+        }
+        
+        h2 { font-size: 1.5rem; margin: 10px 0; color: #fff; }
+
+        /* --- BOTONES --- */
+        button {
+            background: rgba(0,0,0,0.5);
+            color: #fff;
+            border: 2px solid var(--primary);
+            padding: 12px 25px;
+            margin: 8px;
+            font-family: 'Orbitron', sans-serif;
+            font-size: 1rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            cursor: pointer;
+            box-shadow: 0 0 10px var(--primary);
+            transition: all 0.2s;
+            border-radius: 4px;
+            width: 220px;
+        }
+
+        button:hover {
+            background: var(--primary);
+            color: #000;
+            box-shadow: 0 0 25px var(--primary);
+            transform: scale(1.05);
+        }
+
+        button:active { transform: scale(0.95); }
+
+        button.small-btn { width: auto; padding: 5px 15px; font-size: 0.8rem; }
+        
+        button.buy-btn { border-color: var(--gold); box-shadow: 0 0 5px var(--gold); color: var(--gold); }
+        button.buy-btn:hover { background: var(--gold); color: #000; }
+
+        /* --- HUD --- */
+        #hud {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            display: none;
+        }
+
+        #score-display {
+            position: absolute;
+            top: 10%;
+            width: 100%;
+            text-align: center;
+            font-size: 5rem;
+            font-weight: 900;
+            text-shadow: 0 0 20px rgba(255,255,255,0.5);
+            z-index: 5;
+        }
+
+        /* --- TIENDA / PERSONALIZACIÓN --- */
+        #shop-screen {
+            background: var(--glass);
+            backdrop-filter: blur(10px);
+            justify-content: flex-start;
+            padding-top: 20px;
+        }
+
+        .currency-counter {
+            color: var(--gold);
+            font-size: 1.2rem;
+            text-shadow: 0 0 10px var(--gold);
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .shop-tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .tab-btn {
+            border: 1px solid #555;
+            color: #aaa;
+            box-shadow: none;
+            width: auto;
+            padding: 8px 15px;
+            margin: 0;
+        }
+        
+        .tab-btn.active-tab {
+            border-color: var(--primary);
+            color: var(--primary);
+            box-shadow: 0 0 10px var(--primary);
+        }
+
+        .scroll-container {
+            width: 100%;
+            flex: 1;
+            overflow-y: auto;
+            padding: 10px;
+            box-sizing: border-box;
+            background: rgba(0,0,0,0.3);
+        }
+
+        .shop-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+            gap: 15px;
+            padding-bottom: 80px;
+        }
+
+        .shop-item {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid #333;
+            border-radius: 8px;
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            transition: 0.2s;
+            position: relative;
+        }
+
+        .shop-item.equipped { border-color: var(--primary); box-shadow: 0 0 10px var(--primary) inset; }
+        .shop-item.owned { border-color: #555; }
+        
+        .item-preview { width: 50px; height: 50px; margin-bottom: 5px; }
+        .item-name { font-size: 0.7rem; margin-bottom: 5px; text-align: center; height: 20px; overflow: hidden; }
+        .item-price { font-size: 0.8rem; color: var(--gold); }
+        .item-status { font-size: 0.6rem; text-transform: uppercase; margin-top: 5px; }
+
+        .shop-footer {
+            width: 100%;
+            padding: 15px;
+            background: rgba(0,0,0,0.8);
+            position: absolute;
+            bottom: 0;
+            display: flex;
+            justify-content: center;
+        }
+
+        /* --- SCROLLBAR --- */
+        ::-webkit-scrollbar { width: 5px; }
+        ::-webkit-scrollbar-track { background: #111; }
+        ::-webkit-scrollbar-thumb { background: #333; border-radius: 3px; }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <canvas id="gameCanvas"></canvas>
+
+    <div id="hud">
+        <div id="score-display">0</div>
+        <div style="position: absolute; top: 15px; right: 15px; color: var(--gold); font-size: 1.2rem; text-shadow: 0 0 5px var(--gold);">
+            ♦ <span id="game-prism-count">0</span>
+        </div>
+    </div>
+
+    <div id="menu-screen" class="ui-layer active">
+        <h1>FLAPPY<br>NEON</h1>
+        <p style="color:var(--gold); margin-bottom: 20px;">♦ <span id="menu-currency">0</span> Prismas</p>
+        <button onclick="startGame()">JUGAR</button>
+        <button onclick="openShop()">TIENDA / PERSONALIZAR</button>
+        <div style="margin-top:20px; font-size:0.9rem; opacity:0.7;">High Score: <span id="menu-best">0</span></div>
+    </div>
+
+    <div id="gameover-screen" class="ui-layer hidden">
+        <h1 style="color: #ff0055; text-shadow: 0 0 20px #ff0055;">GAME OVER</h1>
+        <h2>Score: <span id="end-score">0</span></h2>
+        <h3 style="color:var(--gold);">♦ +<span id="end-prisms">0</span></h3>
+        <button onclick="startGame()">REINTENTAR</button>
+        <button onclick="goToMenu()">MENÚ</button>
+        <button onclick="openShop()">TIENDA</button>
+    </div>
+
+    <div id="shop-screen" class="ui-layer hidden">
+        <div class="currency-counter">♦ <span id="shop-currency">0</span></div>
+        
+        <div class="shop-tabs">
+            <button class="tab-btn active-tab" onclick="switchTab('skins')">SKINS</button>
+            <button class="tab-btn" onclick="switchTab('cosmetics')">ACCESORIOS</button>
+            <button class="tab-btn" onclick="switchTab('themes')">TEMAS</button>
+        </div>
+
+        <div class="scroll-container">
+            <div id="shop-grid" class="shop-grid">
+                </div>
+        </div>
+
+        <div class="shop-footer">
+            <button onclick="closeShop()">VOLVER</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    /**
+     * =========================================
+     * 1. CONFIGURACIÓN Y ESTADO GLOBAL
+     * =========================================
+     */
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    
+    const GAME_W = 400;
+    const GAME_H = 650;
+    
+    // Estado del Sistema
+    const state = {
+        currency: 0,
+        highScore: 0,
+        inventory: {
+            skins: [0],      // IDs de skins compradas
+            cosmetics: [0],  // IDs de cosméticos comprados
+            themes: [0]      // IDs de temas comprados
+        },
+        equipped: {
+            skin: 0,
+            cosmetic: 0,
+            theme: 0
+        }
+    };
+
+    // Estado del Juego
+    let gameState = 'MENU'; // MENU, PLAYING, GAMEOVER
+    let frames = 0;
+    let score = 0;
+    let gameSpeed = 3;
+    let prismsCollectedInRun = 0;
+    
+    // Entidades
+    let bird;
+    let pipes = [];
+    let prisms = [];
+    let particles = [];
+
+    // Persistencia
+    function loadData() {
+        const data = localStorage.getItem('flappyNeonData_v2');
+        if (data) {
+            const parsed = JSON.parse(data);
+            state.currency = parsed.currency || 0;
+            state.highScore = parsed.highScore || 0;
+            state.inventory = parsed.inventory || { skins:[0], cosmetics:[0], themes:[0] };
+            state.equipped = parsed.equipped || { skin:0, cosmetic:0, theme:0 };
+        }
+        updateUI();
+    }
+
+    function saveData() {
+        localStorage.setItem('flappyNeonData_v2', JSON.stringify(state));
+        updateUI();
+    }
+
+    function updateUI() {
+        document.getElementById('menu-currency').innerText = state.currency;
+        document.getElementById('shop-currency').innerText = state.currency;
+        document.getElementById('menu-best').innerText = state.highScore;
+        applyThemeCSS();
+    }
+
+    /**
+     * =========================================
+     * 2. BASE DE DATOS DE CONTENIDO
+     * =========================================
+     */
+
+    // --- UTILS DRAWING ---
+    const D = {
+        rect: (c, x, y, w, h, col) => { c.fillStyle=col; c.fillRect(x,y,w,h); },
+        circ: (c, x, y, r, col) => { c.fillStyle=col; c.beginPath(); c.arc(x,y,r,0,Math.PI*2); c.fill(); },
+        line: (c, pts, w, col) => { 
+            c.strokeStyle=col; c.lineWidth=w; c.beginPath(); 
+            c.moveTo(pts[0], pts[1]); 
+            for(let i=2; i<pts.length; i+=2) c.lineTo(pts[i], pts[i+1]); 
+            c.stroke(); 
+        }
+    };
+
+    // --- TEMAS (12) ---
+    const THEMES = [
+        // Gratuitos
+        { id: 0, name: "Neon Cyan",   price: 0,  c1: "#00ffff", c2: "#003333", bg: "#001111" },
+        { id: 1, name: "Neon Red",    price: 0,  c1: "#ff0044", c2: "#33000d", bg: "#110005" },
+        { id: 2, name: "Neon Green",  price: 0,  c1: "#00ff00", c2: "#003300", bg: "#001100" },
+        { id: 3, name: "Neon Blue",   price: 0,  c1: "#0088ff", c2: "#001a33", bg: "#000811" },
+        { id: 4, name: "Neon Purple", price: 0,  c1: "#aa00ff", c2: "#220033", bg: "#0a0011" },
+        { id: 5, name: "Neon Pink",   price: 0,  c1: "#ff00ff", c2: "#330033", bg: "#110011" },
+        { id: 6, name: "Neon Orange", price: 0,  c1: "#ffaa00", c2: "#332200", bg: "#110a00" },
+        { id: 7, name: "Neon White",  price: 0,  c1: "#ffffff", c2: "#333333", bg: "#111111" },
+        // Premium (Nuevos)
+        { id: 8, name: "Toxic Lime",  price: 150, c1: "#ccff00", c2: "#2a3300", bg: "#0e1100" },
+        { id: 9, name: "Deep Ocean",  price: 150, c1: "#00ffaa", c2: "#003322", bg: "#00110e" },
+        { id: 10, name: "Royal Gold", price: 300, c1: "#ffd700", c2: "#443900", bg: "#110e00" },
+        { id: 11, name: "RGB Master", price: 500, c1: "rainbow", c2: "#333",    bg: "#000" } // Especial
+    ];
+
+    // --- SKINS (20) ---
+    const SKINS = [
+        { id:0, name:"Box", price:0, draw:(c,r)=>{ D.rect(c,-r,-r,r*2,r*2,"#fff"); } },
+        { id:1, name:"Circle", price:0, draw:(c,r)=>{ D.circ(c,0,0,r,"#fff"); } },
+        { id:2, name:"Triangle", price:0, draw:(c,r)=>{ c.fillStyle="#fff"; c.beginPath(); c.moveTo(r,0); c.lineTo(-r,r); c.lineTo(-r,-r); c.fill(); } },
+        { id:3, name:"Diamond", price:0, draw:(c,r)=>{ c.fillStyle="#fff"; c.beginPath(); c.moveTo(r,0); c.lineTo(0,r); c.lineTo(-r,0); c.lineTo(0,-r); c.fill(); } },
+        { id:4, name:"Star", price:0, draw:(c,r)=>{ c.fillStyle="#fff"; c.beginPath(); for(let i=0;i<5;i++){ c.lineTo(Math.cos((18+i*72)*Math.PI/180)*r, Math.sin((18+i*72)*Math.PI/180)*r); c.lineTo(Math.cos((54+i*72)*Math.PI/180)*r/2, Math.sin((54+i*72)*Math.PI/180)*r/2); } c.fill(); } },
+        { id:5, name:"Cross", price:0, draw:(c,r)=>{ D.rect(c,-r,-r/3,r*2,r/1.5,"#fff"); D.rect(c,-r/3,-r,r/1.5,r*2,"#fff"); } },
+        { id:6, name:"Ring", price:0, draw:(c,r)=>{ c.strokeStyle="#fff"; c.lineWidth=4; c.beginPath(); c.arc(0,0,r-2,0,Math.PI*2); c.stroke(); } },
+        { id:7, name:"Grid", price:0, draw:(c,r)=>{ c.fillStyle="#fff"; D.rect(c,-r,-r,r,r,"#fff"); D.rect(c,0,0,r,r,"#fff"); } },
+        { id:8, name:"Ghost", price:0, draw:(c,r)=>{ c.fillStyle="#fff"; c.beginPath(); c.arc(0,-2,r,Math.PI,0); c.lineTo(r,r); c.lineTo(0,r-5); c.lineTo(-r,r); c.fill(); } },
+        { id:9, name:"Pac", price:0, draw:(c,r)=>{ c.fillStyle="#fff"; c.beginPath(); c.arc(0,0,r,0.2*Math.PI,1.8*Math.PI); c.lineTo(0,0); c.fill(); } },
+        // Premium
+        { id:10, name:"Eye", price:50, draw:(c,r)=>{ D.circ(c,0,0,r,"#fff"); D.circ(c,0,0,r/2,"#000"); D.circ(c,0,0,r/4,"#f00"); } },
+        { id:11, name:"Target", price:50, draw:(c,r)=>{ D.circ(c,0,0,r,"#f00"); D.circ(c,0,0,r*0.7,"#fff"); D.circ(c,0,0,r*0.4,"#f00"); } },
+        { id:12, name:"Smile", price:60, draw:(c,r)=>{ D.circ(c,0,0,r,"#ff0"); c.fillStyle="#000"; D.circ(c,-5,-5,2,"#000"); D.circ(c,5,-5,2,"#000"); c.beginPath(); c.arc(0,2,8,0,Math.PI); c.fill(); } },
+        { id:13, name:"Glitch", price:80, draw:(c,r)=>{ c.fillStyle="#fff"; D.rect(c,-r+2,-r,r*2,r/2,"#0ff"); D.rect(c,-r,-r/2,r*2-4,r,"#fff"); D.rect(c,-r+4,r/2,r*2,r/2,"#f0f"); } },
+        { id:14, name:"Ninja", price:100, draw:(c,r)=>{ D.rect(c,-r,-r,r*2,r*2,"#333"); D.rect(c,-r,-r/3,r*2,r/1.5,"#fff"); } },
+        { id:15, name:"Robot", price:120, draw:(c,r)=>{ D.rect(c,-r,-r,r*2,r*2,"#888"); D.rect(c,-r*0.6,-r*0.4,r*1.2,r*0.3,"#0f0"); } },
+        { id:16, name:"UFO", price:150, draw:(c,r)=>{ c.fillStyle="#888"; c.beginPath(); c.ellipse(0,5,r,r/3,0,0,Math.PI*2); c.fill(); c.fillStyle="#0ff"; c.beginPath(); c.arc(0,0,r/2,Math.PI,0); c.fill(); } },
+        { id:17, name:"Shard", price:180, draw:(c,r)=>{ c.fillStyle="#aaf"; c.beginPath(); c.moveTo(0,-r*1.5); c.lineTo(r,0); c.lineTo(0,r*1.5); c.lineTo(-r*0.5,0); c.fill(); } },
+        { id:18, name:"Atom", price:200, draw:(c,r)=>{ c.strokeStyle="#0ff"; c.lineWidth=2; c.beginPath(); c.ellipse(0,0,r,r/3,Math.PI/4,0,Math.PI*2); c.stroke(); c.beginPath(); c.ellipse(0,0,r,r/3,-Math.PI/4,0,Math.PI*2); c.stroke(); D.circ(c,0,0,4,"#fff"); } },
+        { id:19, name:"Void", price:250, draw:(c,r)=>{ c.strokeStyle="#fff"; c.lineWidth=2; D.circ(c,0,0,r,"#000"); c.stroke(); } }
+    ];
+
+    // --- COSMÉTICOS (50) - Renderizados sobre la skin ---
+    // Nota: "c" es context, "r" es radio del pájaro (~12)
+    const COSMETICS = [
+        { id:0, name:"None", price:0, draw:null },
+        // --- SOMBREROS ---
+        { id:1, name:"Top Hat", price:30, draw:(c,r)=>{ c.fillStyle="#fff"; D.rect(c,-r,-r*2.2,r*2,r*1.2,"#fff"); D.rect(c,-r*1.4,-r*1,r*2.8,r*0.2,"#fff"); } },
+        { id:2, name:"Cap", price:30, draw:(c,r)=>{ c.fillStyle="#f00"; c.beginPath(); c.arc(0,-r*0.8,r,Math.PI,0); c.fill(); D.rect(c,-r,-r*0.8,r*2.5,r*0.3,"#f00"); } },
+        { id:3, name:"Beanie", price:30, draw:(c,r)=>{ c.fillStyle="#0f0"; c.beginPath(); c.arc(0,-r*0.8,r,Math.PI,0); c.fill(); D.circ(c,0,-r*1.8,4,"#fff"); } },
+        { id:4, name:"Crown", price:100, draw:(c,r)=>{ c.fillStyle="gold"; c.beginPath(); c.moveTo(-r,-r); c.lineTo(-r,-r*2); c.lineTo(-r/2,-r*1.2); c.lineTo(0,-r*2.2); c.lineTo(r/2,-r*1.2); c.lineTo(r,-r*2); c.lineTo(r,-r); c.fill(); } },
+        { id:5, name:"Viking", price:50, draw:(c,r)=>{ c.fillStyle="#aaa"; c.beginPath(); c.arc(0,-r*0.5,r,Math.PI,0); c.fill(); c.fillStyle="#fff"; c.beginPath(); c.moveTo(-r,-r); c.lineTo(-r*1.5,-r*2); c.lineTo(-r/2,-r); c.fill(); c.beginPath(); c.moveTo(r,-r); c.lineTo(r*1.5,-r*2); c.lineTo(r/2,-r); c.fill(); } },
+        { id:6, name:"Wizard", price:60, draw:(c,r)=>{ c.fillStyle="#a0f"; c.beginPath(); c.moveTo(-r,-r); c.lineTo(r,-r); c.lineTo(0,-r*3); c.fill(); } },
+        { id:7, name:"Chef", price:40, draw:(c,r)=>{ c.fillStyle="#fff"; D.rect(c,-r,-r*1.5,r*2,r*0.5,"#fff"); c.beginPath(); c.arc(0,-r*1.5,r,Math.PI,0); c.fill(); } },
+        { id:8, name:"Pirate", price:50, draw:(c,r)=>{ c.fillStyle="#000"; c.beginPath(); c.moveTo(-r,-r); c.lineTo(r,-r); c.lineTo(0,-r*2); c.fill(); D.circ(c,0,-r*1.5,3,"#fff"); } },
+        { id:9, name:"Cowboy", price:50, draw:(c,r)=>{ c.fillStyle="#a50"; c.beginPath(); c.ellipse(0,-r*1.2,r*1.5,r*0.2,0,0,Math.PI*2); c.fill(); D.rect(c,-r,-r*1.8,r*2,r*0.8,"#a50"); } },
+        { id:10, name:"Propeller", price:80, draw:(c,r)=>{ c.fillStyle="blue"; c.beginPath(); c.arc(0,-r*0.8,r*0.9,Math.PI,0); c.fill(); c.fillStyle="red"; D.rect(c,-r,-r*2.2,r*2,0.2*r,"#f00"); D.rect(c,-2,-r*2.2,4,r,"#ff0"); } },
+        // --- GAFAS ---
+        { id:11, name:"Sunnies", price:40, draw:(c,r)=>{ c.fillStyle="#000"; D.rect(c,-r,-r*0.2,r*2,r*0.5,"#000"); c.strokeStyle="#fff"; c.strokeRect(-r,-r*0.2,r*2,r*0.5); } },
+        { id:12, name:"3D", price:40, draw:(c,r)=>{ c.fillStyle="#f00"; D.rect(c,-r,-r*0.2,r,r*0.5,"#f00"); c.fillStyle="#00f"; D.rect(c,0,-r*0.2,r,r*0.5,"#00f"); } },
+        { id:13, name:"Pixel", price:50, draw:(c,r)=>{ c.fillStyle="#000"; D.rect(c,-r,0,r*0.8,r*0.2,"#000"); D.rect(c,r*0.2,0,r*0.8,r*0.2,"#000"); } },
+        { id:14, name:"Monocle", price:45, draw:(c,r)=>{ c.strokeStyle="gold"; c.lineWidth=2; c.beginPath(); c.arc(r/2,-r/4,r/3,0,Math.PI*2); c.stroke(); } },
+        { id:15, name:"Blindfold", price:30, draw:(c,r)=>{ c.fillStyle="#f00"; D.rect(c,-r,-r*0.3,r*2,r*0.6,"#f00"); } },
+        { id:16, name:"Cyclops", price:60, draw:(c,r)=>{ c.fillStyle="#fff"; D.rect(c,-r*0.8,-r*0.5,r*1.6,r*0.6,"#aaa"); c.fillStyle="#f00"; D.rect(c,-r*0.2,-r*0.5,r*0.4,r*0.6,"#f00"); } },
+        { id:17, name:"Nerd", price:35, draw:(c,r)=>{ c.strokeStyle="#fff"; c.lineWidth=2; c.beginPath(); c.arc(-r/2,0,r/3,0,Math.PI*2); c.stroke(); c.beginPath(); c.arc(r/2,0,r/3,0,Math.PI*2); c.stroke(); D.rect(c,-r/2,0,r,2,"#fff"); } },
+        // --- EFECTOS / HALOS ---
+        { id:18, name:"Halo", price:100, draw:(c,r)=>{ c.strokeStyle="gold"; c.lineWidth=2; c.beginPath(); c.ellipse(0,-r*1.8,r,r*0.3,0,0,Math.PI*2); c.stroke(); } },
+        { id:19, name:"Horns", price:60, draw:(c,r)=>{ c.fillStyle="red"; c.beginPath(); c.moveTo(-r/2,-r); c.lineTo(-r,-r*2); c.lineTo(0,-r); c.fill(); c.beginPath(); c.moveTo(r/2,-r); c.lineTo(r,-r*2); c.lineTo(0,-r); c.fill(); } },
+        { id:20, name:"Angel", price:120, draw:(c,r)=>{ c.fillStyle="#fff"; c.globalAlpha=0.7; c.beginPath(); c.moveTo(-r,0); c.quadraticCurveTo(-r*2.5,-r,-r,-r*1.5); c.fill(); c.globalAlpha=1; } }, // Solo ala izq visible 2D
+        { id:21, name:"Demon", price:120, draw:(c,r)=>{ c.fillStyle="#f00"; c.beginPath(); c.moveTo(-r,0); c.lineTo(-r*2.5,-r); c.lineTo(-r,-r*0.5); c.fill(); } },
+        // --- TECNOLOGÍA ---
+        { id:22, name:"Headphones", price:70, draw:(c,r)=>{ c.strokeStyle="#333"; c.lineWidth=3; c.beginPath(); c.arc(0,0,r*1.2,Math.PI,0); c.stroke(); c.fillStyle="#0ff"; D.rect(c,-r*1.6,-r*0.5,r*0.6,r,"#0ff"); } },
+        { id:23, name:"Antenna", price:50, draw:(c,r)=>{ c.strokeStyle="#aaa"; c.beginPath(); c.moveTo(0,-r); c.lineTo(0,-r*2.5); c.stroke(); D.circ(c,0,-r*2.5,3,"#f00"); } },
+        { id:24, name:"Scouter", price:90, draw:(c,r)=>{ c.strokeStyle="#0f0"; c.beginPath(); c.arc(r/2,-r/4,r/3,0,Math.PI*2); c.stroke(); D.line(c,[r/2,-r/4, r*1.5,-r*0.5], 1, "#0f0"); } },
+        // --- MÁSCARAS ---
+        { id:25, name:"Medical", price:30, draw:(c,r)=>{ c.fillStyle="#fff"; D.rect(c,-r,0,r*2,r,"#fff"); } },
+        { id:26, name:"Gas Mask", price:80, draw:(c,r)=>{ c.fillStyle="#222"; D.circ(c,0,0,r,"#222"); D.circ(c,-r/2,r/2,r/3,"#555"); D.circ(c,r/2,r/2,r/3,"#555"); } },
+        { id:27, name:"Bane", price:90, draw:(c,r)=>{ c.fillStyle="#000"; for(let i=-2;i<=2;i++){ D.rect(c,i*4,0,2,r,"#aaa"); } } },
+        { id:28, name:"Clown", price:50, draw:(c,r)=>{ D.circ(c,0,0,r/3,"#f00"); } },
+        { id:29, name:"Mustache", price:40, draw:(c,r)=>{ c.fillStyle="#000"; c.beginPath(); c.arc(-r/3,r/2,r/3,0,Math.PI,true); c.arc(r/3,r/2,r/3,0,Math.PI,true); c.fill(); } },
+        // --- RANDOM EXTRAS ---
+        { id:30, name:"Flower", price:40, draw:(c,r)=>{ c.fillStyle="pink"; for(let i=0;i<5;i++){ c.beginPath(); c.arc(Math.cos(i)*r, -r+Math.sin(i)*r, r/3, 0, Math.PI*2); c.fill(); } } },
+        { id:31, name:"Bow", price:45, draw:(c,r)=>{ c.fillStyle="pink"; c.beginPath(); c.moveTo(0,-r*1.5); c.lineTo(-r,-r*2); c.lineTo(-r,-r); c.fill(); c.beginPath(); c.moveTo(0,-r*1.5); c.lineTo(r,-r*2); c.lineTo(r,-r); c.fill(); } },
+        { id:32, name:"Tie", price:40, draw:(c,r)=>{ c.fillStyle="red"; c.beginPath(); c.moveTo(0,r/2); c.lineTo(-r/2,r*1.5); c.lineTo(r/2,r*1.5); c.fill(); } },
+        { id:33, name:"Pipe", price:50, draw:(c,r)=>{ c.strokeStyle="brown"; c.lineWidth=3; c.beginPath(); c.moveTo(r/2,r/2); c.lineTo(r*1.5,r); c.stroke(); D.circ(c,r*1.5,r,4,"#333"); } },
+        { id:34, name:"Cape", price:80, draw:(c,r)=>{ c.fillStyle="red"; c.beginPath(); c.moveTo(-r,0); c.lineTo(-r*2.5,r*1.5); c.lineTo(0,r); c.fill(); } },
+        { id:35, name:"Spikes", price:60, draw:(c,r)=>{ c.fillStyle="#888"; c.beginPath(); c.moveTo(0,-r); c.lineTo(-3,-r*1.5); c.lineTo(3,-r*1.5); c.fill(); } },
+        { id:36, name:"Mohawk", price:60, draw:(c,r)=>{ c.fillStyle="#f0f"; c.beginPath(); c.moveTo(-r/2,-r); c.lineTo(0,-r*2.2); c.lineTo(r/2,-r); c.fill(); } },
+        { id:37, name:"Afro", price:50, draw:(c,r)=>{ c.fillStyle="#420"; D.circ(c,0,-r*0.5,r*1.4,"#420"); } },
+        { id:38, name:"Elvis", price:60, draw:(c,r)=>{ c.fillStyle="#000"; c.beginPath(); c.moveTo(-r,-r); c.lineTo(r,-r); c.quadraticCurveTo(r, -r*1.5, 0, -r*0.5); c.fill(); } },
+        { id:39, name:"Arrow", price:50, draw:(c,r)=>{ c.strokeStyle="#fff"; c.beginPath(); c.moveTo(-r*2,-r); c.lineTo(r*2,-r); c.stroke(); } },
+        { id:40, name:"Knife", price:50, draw:(c,r)=>{ c.fillStyle="#aaa"; D.rect(c,-r*1.5,-r,r*3,r*0.3,"#aaa"); } },
+        { id:41, name:"Bandage", price:30, draw:(c,r)=>{ c.fillStyle="#eee"; D.rect(c,-r,-r,r,r/2,"#eee"); } },
+        { id:42, name:"Earrings", price:40, draw:(c,r)=>{ c.fillStyle="gold"; D.circ(c,-r/2,r/2,2,"gold"); } },
+        { id:43, name:"Chain", price:60, draw:(c,r)=>{ c.strokeStyle="gold"; c.lineWidth=2; c.beginPath(); c.arc(0,r,r,0,Math.PI); c.stroke(); } },
+        { id:44, name:"Beard", price:40, draw:(c,r)=>{ c.fillStyle="#aaa"; c.beginPath(); c.arc(0,0,r,0,Math.PI); c.fill(); } },
+        { id:45, name:"Bubble", price:30, draw:(c,r)=>{ c.fillStyle="rgba(0,255,255,0.5)"; D.circ(c,0,0,r*1.5,"rgba(0,255,255,0.3)"); } },
+        { id:46, name:"Flame", price:100, draw:(c,r)=>{ c.fillStyle="orange"; c.beginPath(); c.moveTo(-r,0); c.lineTo(0,-r*2); c.lineTo(r,0); c.fill(); } },
+        { id:47, name:"Leaf", price:40, draw:(c,r)=>{ c.fillStyle="lime"; c.beginPath(); c.ellipse(0,-r,r,r/3,Math.PI/4,0,Math.PI*2); c.fill(); } },
+        { id:48, name:"Snow", price:100, draw:(c,r)=>{ c.fillStyle="#fff"; D.circ(c,0,-r*2,2,"#fff"); D.circ(c,r,-r*1.5,2,"#fff"); D.circ(c,-r,-r*1.5,2,"#fff"); } },
+        { id:49, name:"Ushanka", price:70, draw:(c,r)=>{ c.fillStyle="#630"; D.rect(c,-r,-r*1.2,r*2,r,"#630"); c.fillStyle="#a85"; D.rect(c,-r,-r,r*0.5,r*1.5,"#a85"); } }
+    ];
+
+    /**
+     * =========================================
+     * 3. MOTOR DEL JUEGO
+     * =========================================
+     */
+
+    class Bird {
+        constructor() {
+            this.x = 50;
+            this.y = GAME_H / 2;
+            this.dy = 0;
+            this.g = 0.25;
+            this.jumpForce = -4.5;
+            this.r = 13;
+        }
+        update() {
+            this.dy += this.g;
+            this.y += this.dy;
+            if (this.y + this.r >= GAME_H) gameOver();
+            if (this.y - this.r <= 0) this.y = this.r;
+        }
+        draw() {
+            ctx.save();
+            ctx.translate(this.x, this.y);
+            let rot = Math.min(Math.PI/4, Math.max(-Math.PI/4, this.dy * 0.1));
+            ctx.rotate(rot);
+
+            let theme = THEMES[state.equipped.theme];
+            let skin = SKINS[state.equipped.skin];
+            let cosmetic = COSMETICS[state.equipped.cosmetic];
+
+            // Glow base
+            ctx.shadowBlur = 15;
+            ctx.shadowColor = theme.c1 === 'rainbow' ? `hsl(${frames%360},100%,50%)` : theme.c1;
+            
+            // Dibujar Skin
+            skin.draw(ctx, this.r);
+
+            // Ojo de orientación (si la skin no tiene)
+            if(state.equipped.skin < 10) {
+                ctx.fillStyle = "#000"; ctx.beginPath(); ctx.arc(4, -4, 2, 0, Math.PI*2); ctx.fill();
+            }
+
+            // Dibujar Cosmético
+            if (cosmetic.draw) {
+                ctx.shadowBlur = 0; // Cosméticos sin glow excesivo
+                cosmetic.draw(ctx, this.r);
+            }
+
+            ctx.restore();
+        }
+        jump() { this.dy = this.jumpForce; }
+    }
+
+    class Pipe {
+        constructor() {
+            this.x = GAME_W;
+            this.w = 52;
+            this.gap = 130;
+            this.top = Math.random() * (GAME_H - this.gap - 100) + 50;
+            this.passed = false;
+            // 50% chance de Prisma
+            this.hasPrisma = Math.random() > 0.5;
+            if(this.hasPrisma) {
+                prisms.push(new Prisma(this.x + this.w/2, this.top + this.gap/2));
+            }
+        }
+        update() { this.x -= gameSpeed; }
+        draw() {
+            let theme = THEMES[state.equipped.theme];
+            let color = theme.c1 === 'rainbow' ? `hsl(${frames%360},100%,50%)` : theme.c1;
+            let fill = theme.c2;
+
+            ctx.shadowBlur = 20;
+            ctx.shadowColor = color;
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 2;
+            ctx.fillStyle = fill;
+
+            // Top
+            ctx.strokeRect(this.x, -10, this.w, this.top + 10);
+            ctx.fillRect(this.x, -10, this.w, this.top + 10);
+            // Bottom
+            let by = this.top + this.gap;
+            ctx.strokeRect(this.x, by, this.w, GAME_H - by + 10);
+            ctx.fillRect(this.x, by, this.w, GAME_H - by + 10);
+
+            ctx.shadowBlur = 0;
+        }
+    }
+
+    class Prisma {
+        constructor(x, y) {
+            this.x = x; this.y = y;
+            this.r = 12; // Radio colisión
+            this.floatY = 0;
+            this.collected = false;
+        }
+        update() {
+            this.x -= gameSpeed;
+            this.floatY = Math.sin(frames * 0.1) * 5;
+        }
+        draw() {
+            if(this.collected) return;
+            let py = this.y + this.floatY;
+            
+            ctx.save();
+            ctx.translate(this.x, py);
+            ctx.shadowBlur = 10;
+            ctx.shadowColor = "gold";
+            ctx.fillStyle = "rgba(255, 215, 0, 0.8)";
+            ctx.beginPath();
+            ctx.moveTo(0, -10); ctx.lineTo(8, 0); ctx.lineTo(0, 10); ctx.lineTo(-8, 0);
+            ctx.fill();
+            ctx.strokeStyle = "#fff";
+            ctx.lineWidth = 1;
+            ctx.stroke();
+            ctx.restore();
+        }
+    }
+
+    class Particle {
+        constructor(x, y, color) {
+            this.x = x; this.y = y;
+            this.vx = (Math.random()-0.5)*10;
+            this.vy = (Math.random()-0.5)*10;
+            this.life = 1;
+            this.color = color;
+        }
+        update() { this.x+=this.vx; this.y+=this.vy; this.life-=0.05; }
+        draw() {
+            ctx.globalAlpha = Math.max(0, this.life);
+            ctx.fillStyle = this.color;
+            ctx.fillRect(this.x, this.y, 4, 4);
+            ctx.globalAlpha = 1;
+        }
+    }
+
+    function initGame() {
+        resize();
+        loadData();
+        // Inicializar un loop visual para el menú
+        gameState = 'MENU';
+        bird = new Bird();
+        bird.y = GAME_H/2;
+        loop();
+    }
+
+    function startGame() {
+        bird = new Bird();
+        pipes = [];
+        prisms = [];
+        particles = [];
+        score = 0;
+        prismsCollectedInRun = 0;
+        gameSpeed = 3;
+        gameState = 'PLAYING';
+        
+        document.querySelectorAll('.ui-layer').forEach(el => el.classList.replace('active', 'hidden'));
+        document.getElementById('hud').style.display = 'block';
+        document.getElementById('score-display').innerText = '0';
+        document.getElementById('game-prism-count').innerText = '0';
+    }
+
+    function loop() {
+        // Lógica
+        if (gameState === 'PLAYING') {
+            bird.update();
+
+            // Pipes
+            if (frames % 100 === 0) pipes.push(new Pipe());
+            
+            for(let i=0; i<pipes.length; i++) {
+                let p = pipes[i];
+                p.update();
+                
+                // Colisión Pájaro-Tubo
+                if (bird.x + bird.r > p.x && bird.x - bird.r < p.x + p.w) {
+                    if (bird.y - bird.r < p.top || bird.y + bird.r > p.top + p.gap) {
+                        gameOver();
+                    }
+                }
+                // Score
+                if (!p.passed && bird.x > p.x + p.w) {
+                    score++;
+                    p.passed = true;
+                    document.getElementById('score-display').innerText = score;
+                    if(score % 5 === 0) gameSpeed += 0.2;
+                }
+            }
+            if (pipes.length > 0 && pipes[0].x < -60) pipes.shift();
+
+            // Prismas
+            for(let i=0; i<prisms.length; i++) {
+                let pr = prisms[i];
+                pr.update();
+                // Colisión Prisma
+                let dx = bird.x - pr.x;
+                let dy = bird.y - (pr.y + pr.floatY);
+                if (!pr.collected && Math.sqrt(dx*dx + dy*dy) < bird.r + 10) {
+                    pr.collected = true;
+                    prismsCollectedInRun++;
+                    document.getElementById('game-prism-count').innerText = prismsCollectedInRun;
+                    // Efecto visual
+                    for(let k=0; k<5; k++) particles.push(new Particle(pr.x, pr.y, "gold"));
+                }
+            }
+            if (prisms.length > 0 && prisms[0].x < -50) prisms.shift();
+        }
+
+        // Partículas
+        particles.forEach((p,i) => {
+            p.update();
+            if(p.life<=0) particles.splice(i,1);
+        });
+
+        // Render
+        drawBackground();
+        pipes.forEach(p => p.draw());
+        prisms.forEach(p => p.draw());
+        bird.draw();
+        particles.forEach(p => p.draw());
+
+        frames++;
+        requestAnimationFrame(loop);
+    }
+
+    function drawBackground() {
+        let theme = THEMES[state.equipped.theme];
+        ctx.fillStyle = theme.bg;
+        ctx.fillRect(0,0,GAME_W,GAME_H);
+
+        // Grid
+        ctx.strokeStyle = theme.c1 === 'rainbow' ? `hsl(${frames%360},100%,50%)` : theme.c1;
+        ctx.globalAlpha = 0.1;
+        ctx.lineWidth = 1;
+        
+        let offset = (frames * (gameState==='PLAYING'?1:0.5)) % 40;
+        
+        // Vertical
+        for(let x=0; x<=GAME_W; x+=40) { ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,GAME_H); ctx.stroke(); }
+        // Horizontal (Scroll)
+        for(let y=0; y<=GAME_H; y+=40) {
+            let dy = (y + offset) % GAME_H;
+            ctx.beginPath(); ctx.moveTo(0,dy); ctx.lineTo(GAME_W,dy); ctx.stroke(); 
+        }
+        ctx.globalAlpha = 1;
+    }
+
+    function gameOver() {
+        gameState = 'GAMEOVER';
+        
+        // Update Estado
+        state.currency += prismsCollectedInRun;
+        if(score > state.highScore) state.highScore = score;
+        saveData();
+
+        // Efecto Explosión
+        let theme = THEMES[state.equipped.theme];
+        let col = theme.c1 === 'rainbow' ? '#fff' : theme.c1;
+        for(let i=0; i<30; i++) particles.push(new Particle(bird.x, bird.y, col));
+
+        // UI
+        document.getElementById('hud').style.display = 'none';
+        document.getElementById('end-score').innerText = score;
+        document.getElementById('end-prisms').innerText = prismsCollectedInRun;
+        
+        setTimeout(() => {
+            document.getElementById('gameover-screen').classList.replace('hidden', 'active');
+        }, 500);
+    }
+
+    function goToMenu() {
+        gameState = 'MENU';
+        document.querySelectorAll('.ui-layer').forEach(el => el.classList.replace('active', 'hidden'));
+        document.getElementById('menu-screen').classList.replace('hidden', 'active');
+        updateUI();
+        bird.y = GAME_H/2;
+    }
+
+    function resize() {
+        let sc = Math.min(window.innerWidth/GAME_W, window.innerHeight/GAME_H);
+        canvas.width = GAME_W * sc;
+        canvas.height = GAME_H * sc;
+        ctx.scale(sc, sc);
+    }
+    window.addEventListener('resize', resize);
+
+    // Inputs
+    function jumpInput() { 
+        if(gameState === 'PLAYING') bird.jump();
+    }
+    window.addEventListener('mousedown', jumpInput);
+    window.addEventListener('touchstart', (e)=>{ e.preventDefault(); jumpInput(); }, {passive:false});
+    window.addEventListener('keydown', (e)=>{ if(e.code==='Space') jumpInput(); });
+
+    /**
+     * =========================================
+     * 4. SISTEMA DE TIENDA Y PERSONALIZACIÓN
+     * =========================================
+     */
+    let currentTab = 'skins';
+
+    function openShop() {
+        gameState = 'MENU'; // Pausar visualmente si venimos de gameover
+        document.querySelectorAll('.ui-layer').forEach(el => el.classList.replace('active', 'hidden'));
+        document.getElementById('shop-screen').classList.replace('hidden', 'active');
+        switchTab('skins');
+    }
+
+    function closeShop() {
+        document.getElementById('shop-screen').classList.replace('active', 'hidden');
+        document.getElementById('menu-screen').classList.replace('hidden', 'active');
+        saveData();
+    }
+
+    function switchTab(tab) {
+        currentTab = tab;
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active-tab'));
+        // Buscar el botón correspondiente (simple hack por texto)
+        let btns = document.querySelectorAll('.tab-btn');
+        if(tab==='skins') btns[0].classList.add('active-tab');
+        if(tab==='cosmetics') btns[1].classList.add('active-tab');
+        if(tab==='themes') btns[2].classList.add('active-tab');
+        
+        renderShopGrid();
+    }
+
+    function renderShopGrid() {
+        const grid = document.getElementById('shop-grid');
+        grid.innerHTML = '';
+
+        let items = [];
+        let ownedList = [];
+        let equippedId = 0;
+
+        if (currentTab === 'skins') {
+            items = SKINS;
+            ownedList = state.inventory.skins;
+            equippedId = state.equipped.skin;
+        } else if (currentTab === 'cosmetics') {
+            items = COSMETICS;
+            ownedList = state.inventory.cosmetics;
+            equippedId = state.equipped.cosmetic;
+        } else {
+            items = THEMES;
+            ownedList = state.inventory.themes;
+            equippedId = state.equipped.theme;
+        }
+
+        items.forEach(item => {
+            const isOwned = ownedList.includes(item.id);
+            const isEquipped = equippedId === item.id;
+            
+            const card = document.createElement('div');
+            card.className = `shop-item ${isOwned ? 'owned' : ''} ${isEquipped ? 'equipped' : ''}`;
+            
+            // Preview Canvas
+            const cvs = document.createElement('canvas');
+            cvs.className = 'item-preview';
+            cvs.width = 50; cvs.height = 50;
+            drawPreview(cvs.getContext('2d'), item, currentTab);
+            
+            // Texto
+            const name = document.createElement('div');
+            name.className = 'item-name';
+            name.innerText = item.name;
+
+            const actionBtn = document.createElement('button');
+            actionBtn.className = 'small-btn';
+            
+            if (isEquipped) {
+                actionBtn.innerText = "EQUIPADO";
+                actionBtn.style.borderColor = "var(--primary)";
+                actionBtn.disabled = true;
+            } else if (isOwned) {
+                actionBtn.innerText = "EQUIPAR";
+                actionBtn.onclick = () => equipItem(item.id);
+            } else {
+                actionBtn.innerText = `♦ ${item.price}`;
+                actionBtn.className = 'small-btn buy-btn';
+                actionBtn.onclick = () => buyItem(item);
+            }
+
+            card.appendChild(cvs);
+            card.appendChild(name);
+            card.appendChild(actionBtn);
+            grid.appendChild(card);
+        });
+    }
+
+    function drawPreview(c, item, type) {
+        c.translate(25, 25);
+        if (type === 'skins') {
+            c.fillStyle = "#00ffff"; c.shadowBlur = 5; c.shadowColor="#00ffff";
+            item.draw(c, 15);
+        } else if (type === 'cosmetics') {
+            // Dibujar silueta base
+            c.fillStyle = "#333"; c.beginPath(); c.arc(0,0,15,0,Math.PI*2); c.fill();
+            // Dibujar cosmético
+            if(item.draw) item.draw(c, 15);
+        } else if (type === 'themes') {
+            // Gradiente o color
+            c.fillStyle = item.bg;
+            c.fillRect(-25,-25,50,50);
+            c.strokeStyle = item.c1 === 'rainbow' ? 'white' : item.c1;
+            c.lineWidth = 2;
+            c.strokeRect(-20,-20,40,40);
+        }
+    }
+
+    function buyItem(item) {
+        if (state.currency >= item.price) {
+            state.currency -= item.price;
+            
+            if (currentTab === 'skins') state.inventory.skins.push(item.id);
+            if (currentTab === 'cosmetics') state.inventory.cosmetics.push(item.id);
+            if (currentTab === 'themes') state.inventory.themes.push(item.id);
+            
+            saveData();
+            renderShopGrid(); // Refresh para mostrar botón Equipar
+        } else {
+            alert("¡No tienes suficientes Prismas!");
+        }
+    }
+
+    function equipItem(id) {
+        if (currentTab === 'skins') state.equipped.skin = id;
+        if (currentTab === 'cosmetics') state.equipped.cosmetic = id;
+        if (currentTab === 'themes') {
+            state.equipped.theme = id;
+            applyThemeCSS();
+        }
+        saveData();
+        renderShopGrid();
+    }
+
+    function applyThemeCSS() {
+        const theme = THEMES[state.equipped.theme];
+        const color = theme.c1 === 'rainbow' ? '#ff00ff' : theme.c1;
+        document.documentElement.style.setProperty('--primary', color);
+        document.documentElement.style.setProperty('--bg', theme.bg);
+    }
+
+    // ARRANQUE
+    initGame();
+
+</script>
+</body>
+</html>
